@@ -293,8 +293,13 @@ def check_and_send_alerts(analysis, email):
 # Sidebar - Konfiguracja
 st.sidebar.title("⚙️ Konfiguracja")
 
-# Pobierz API Key z .env (NIE pokazuj w UI!)
-api_key = os.environ.get('FRED_API_KEY', '')
+# Pobierz API Key - obsługa zarówno lokalnego .env jak i Streamlit Cloud secrets
+try:
+    # Najpierw spróbuj Streamlit secrets (dla Streamlit Cloud)
+    api_key = st.secrets.get('FRED_API_KEY', '')
+except (AttributeError, FileNotFoundError, KeyError):
+    # Jeśli nie ma st.secrets, użyj .env (dla lokalnego użycia)
+    api_key = os.environ.get('FRED_API_KEY', '')
 
 # Zakres dat
 days_back = st.sidebar.slider(
@@ -477,17 +482,31 @@ st.markdown('<p class="subtitle">Zaawansowany system analizy płynności rynkowe
 
 # Sprawdź czy jest API key
 if not api_key:
-    st.error("❌ Brak klucza API w pliku .env!")
-    st.info("""
-    **Jak naprawić:**
-    1. Sprawdź czy istnieje plik `.env` w folderze projektu
-    2. Plik powinien zawierać: `FRED_API_KEY=twoj_klucz_tutaj`
-    3. Zrestartuj aplikację
+    st.error("❌ Brak klucza API!")
 
-    **Nie masz klucza?**
-    - Zarejestruj się: https://fred.stlouisfed.org/
-    - Uzyskaj klucz: https://fred.stlouisfed.org/docs/api/api_key.html
-    """)
+    # Wykryj czy to Streamlit Cloud czy lokalne środowisko
+    is_cloud = os.path.exists('/mount/src')
+
+    if is_cloud:
+        st.warning("🌐 **Streamlit Cloud**")
+        st.info("""
+        **Jak dodać klucz API:**
+        1. Dashboard → ⚙️ Settings → Secrets
+        2. Wpisz: `FRED_API_KEY = "twoj_klucz"`
+        3. Save → Reboot app
+
+        **Nie masz klucza?** https://fred.stlouisfed.org/docs/api/api_key.html
+        """)
+    else:
+        st.warning("💻 **Uruchamiasz lokalnie**")
+        st.info("""
+        **Jak naprawić:**
+        1. Stwórz plik `.env` w folderze projektu
+        2. Dodaj: `FRED_API_KEY=twoj_klucz_tutaj`
+        3. Zrestartuj aplikację
+
+        **Nie masz klucza?** https://fred.stlouisfed.org/docs/api/api_key.html
+        """)
     st.stop()
 
 # Ładuj dane
