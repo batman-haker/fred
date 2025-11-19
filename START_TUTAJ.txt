@@ -1,0 +1,83 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║           🚨 APLIKACJA NIE DZIAŁA? PRZECZYTAJ TO! 🚨            ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+PROBLEM: Python nie jest zainstalowany na Twoim komputerze!
+
+═══════════════════════════════════════════════════════════════════
+
+✅ ROZWIĄZANIE - 3 PROSTE KROKI:
+
+═══════════════════════════════════════════════════════════════════
+
+KROK 1: Zainstaluj Python
+--------------------------
+
+1. Otwórz: https://www.python.org/downloads/
+2. Kliknij "Download Python" (żółty przycisk)
+3. Uruchom pobrany plik
+4. ⚠️  WAŻNE: Zaznacz checkbox "Add Python to PATH" ⚠️
+5. Kliknij "Install Now"
+6. Poczekaj 2-3 minuty
+
+KROK 2: Zrestartuj komputer (lub przynajmniej terminal)
+--------------------------------------------------------
+
+To jest WAŻNE! Windows musi odświeżyć zmienne środowiskowe.
+
+KROK 3: Uruchom aplikację
+--------------------------
+
+Podwójne kliknięcie na: start_app.bat
+
+Lub w terminalu:
+    cd C:\FRED
+    python -m streamlit run app.py
+
+═══════════════════════════════════════════════════════════════════
+
+📖 SZCZEGÓŁOWA INSTRUKCJA:
+
+Otwórz plik: INSTALACJA_WINDOWS.md
+
+═══════════════════════════════════════════════════════════════════
+
+🧪 TEST INSTALACJI:
+
+Po zainstalowaniu Pythona, sprawdź czy działa:
+
+1. Otwórz terminal (PowerShell lub CMD)
+2. Wpisz: python --version
+3. Jeśli widzisz "Python 3.12.x" - działa! ✅
+4. Uruchom test: python test_setup.py
+
+═══════════════════════════════════════════════════════════════════
+
+❓ NADAL NIE DZIAŁA?
+
+1. Sprawdź czy zaznaczyłeś "Add Python to PATH" podczas instalacji
+2. Zrestartuj komputer
+3. Spróbuj ponownie
+
+Jeśli nadal problem, otwórz: INSTALACJA_WINDOWS.md
+
+═══════════════════════════════════════════════════════════════════
+
+Co zostanie zainstalowane:
+- Python 3.12 (język programowania)
+- Streamlit (framework do aplikacji webowych)
+- Pandas (analiza danych)
+- Plotly (wykresy)
+- Requests (pobieranie danych)
+
+Łącznie: ~500 MB
+
+═══════════════════════════════════════════════════════════════════
+
+Po udanej instalacji aplikacja uruchomi się pod adresem:
+
+    👉 http://localhost:8501 👈
+
+═══════════════════════════════════════════════════════════════════
