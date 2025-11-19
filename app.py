@@ -46,6 +46,59 @@ def load_data(api_key, days_back=90):
         return indicators, analysis, monitor
     return None, None, monitor
 
+def get_glossary():
+    """Słownik pojęć - proste wyjaśnienia skomplikowanych terminów"""
+    return {
+        "SOFR-IORB Spread": {
+            "co_to": "Różnica między stopą SOFR (rynkowa) a IORB (ustaloną przez Fed)",
+            "dlaczego_wazne": "Pokazuje napięcia w finansowaniu na rynku repo. Im wyższy spread, tym droższy lewar dla hedge funds i większe ryzyko kryzysu płynności.",
+            "jak_czytac": "< 0.10% = OK ✅ | 0.15-0.20% = Napięcia ⚠️ | > 0.20% = REPO STRESS! 🚨",
+            "przyklad": "Jeśli spread = 0.25%, to hedge funds płacą 0.25% więcej za finansowanie niż powinny. Przy 3 bilionach USD lewara to ogromne koszty!"
+        },
+        "Rezerwy Banków": {
+            "co_to": "Pieniądze które banki trzymają na koncie w Fed (gotówka systemu)",
+            "dlaczego_wazne": "To 'paliwo' dla całego systemu finansowego. Za mało = droższe pożyczki, za dużo = QE/nadpłynność.",
+            "jak_czytac": "> 3000B = Dużo ✅ | 2800-3000B = Wystarczająco ⚠️ | < 2800B = Za mało 🚨",
+            "przyklad": "Gdy rezerwy spadają, SOFR spread rośnie (droższa płynność). To jak spadek wody w studni - trzeba głębiej kopać (płacić więcej)."
+        },
+        "Repo Market": {
+            "co_to": "Rynek gdzie instytucje pożyczają pieniądze pod zastaw papierów (głównie bonów skarbowych)",
+            "dlaczego_wazne": "Wartość 3.2 biliona USD (10% PKB USA!). Tu hedge funds budują lewar. Jak ten rynek się zablokuje = kryzys.",
+            "jak_czytac": "Stabilny SOFR = zdrowy repo market. Wysoki SOFR spread = problemy z finansowaniem.",
+            "przyklad": "Hedge fund kupuje obligacje za 100M USD, daje je jako zastaw i pożycza 95M USD. Za te 95M kupuje jeszcze obligacje. To lewar!"
+        },
+        "Basis Trade": {
+            "co_to": "Strategia hedge funds: kupują obligacje spot, sprzedają futures. Zarabiają na różnicy (basis).",
+            "dlaczego_wazne": "Hedge funds trzymają OGROMNE pozycje w obligacjach USA finansowane przez repo. Jak repo market się zablokuje, muszą sprzedawać → panika.",
+            "jak_czytac": "Wysoki SOFR spread = drogie finansowanie basis trade = mniejsza opłacalność = ryzyko masowych likwidacji",
+            "przyklad": "Hedge fund ma 100B USD w basis trade. Koszt finansowania rośnie z 0.05% do 0.25% = +200M USD rocznie kosztów!"
+        },
+        "TGA": {
+            "co_to": "Konto rządu USA w Fed (jak Twoje konto w banku, tylko rządowe)",
+            "dlaczego_wazne": "Gdy TGA rośnie (rząd zbiera podatki) = zabiera płynność z systemu. Gdy spada (wydatki/shutdown kończy się) = dodaje płynność.",
+            "jak_czytac": "TGA rośnie = minus dla płynności 📉 | TGA spada = plus dla płynności 📈",
+            "przyklad": "Shutdown: TGA rośnie do 1T USD (rząd nie wydaje). Po shutdownie TGA spada do 850B = +150B USD płynności dla rynku!"
+        },
+        "Yield Curve": {
+            "co_to": "Różnica między rentownością długich (10Y) i krótkich (2Y) obligacji",
+            "dlaczego_wazne": "Odwrócona krzywa (ujemna) = recesja za 12-18 miesięcy (sprawdza się w 80%!)",
+            "jak_czytac": "< 0% = Recesja blisko 🚨 | 0-1% = Normalna ✅ | > 1% = Ekspansja 🚀",
+            "przyklad": "10Y = 3.5%, 2Y = 4.0% → spread = -0.5% = ODWRÓCONA KRZYWA = recesja się zbliża!"
+        },
+        "VIX": {
+            "co_to": "'Indeks strachu' - mierzy oczekiwaną zmienność rynku akcji",
+            "dlaczego_wazne": "Pokazuje czy inwestorzy się boją. Wysoki VIX = panika = rynek spada.",
+            "jak_czytac": "< 15 = Spokój 😌 | 15-30 = Normalna zmienność 😐 | > 30 = Panika! 😱",
+            "przyklad": "VIX = 40 (jak w COVID) = rynek w panice. VIX = 12 = wszyscy zadowoleni, może za bardzo..."
+        },
+        "NFCI": {
+            "co_to": "Indeks warunków finansowych (stopy, spready kredytowe, zmienność)",
+            "dlaczego_wazne": "Mierzy czy łatwo czy trudno dostać finansowanie. Wysokie NFCI = zacieśnione warunki = spadki.",
+            "jak_czytac": "< -0.5 = Luźne warunki ✅ | 0 = Neutralne | > 0 = Napięte ⚠️ | > 0.5 = Bardzo napięte 🚨",
+            "przyklad": "NFCI = 0.8 = banki są ostrożne, spready wysokie, trudno dostać kredyt = ryzyko recesji."
+        }
+    }
+
 def create_metric_card(label, value, change, unit="B USD", inverse=False):
     """Tworzy kartę z metryką"""
     change_color = "inverse" if inverse else "normal"
@@ -324,6 +377,25 @@ if auto_refresh:
 
 # Informacje
 st.sidebar.markdown("---")
+st.sidebar.markdown("### 📖 Słownik Pojęć")
+st.sidebar.markdown("*Prosty przewodnik po skomplikowanych terminach*")
+
+glossary = get_glossary()
+selected_term = st.sidebar.selectbox(
+    "Wybierz termin:",
+    [""] + list(glossary.keys()),
+    format_func=lambda x: "-- Wybierz --" if x == "" else x
+)
+
+if selected_term:
+    term_info = glossary[selected_term]
+    with st.sidebar.expander(f"💡 {selected_term}", expanded=True):
+        st.markdown(f"**Co to jest?**  \n{term_info['co_to']}")
+        st.markdown(f"**Dlaczego ważne?**  \n{term_info['dlaczego_wazne']}")
+        st.markdown(f"**Jak czytać?**  \n{term_info['jak_czytac']}")
+        st.markdown(f"**Przykład:**  \n_{term_info['przyklad']}_")
+
+st.sidebar.markdown("---")
 st.sidebar.markdown("### 📚 Info")
 st.sidebar.markdown("""
 - **Źródło**: FRED API
@@ -472,6 +544,159 @@ st.markdown("""
     .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
+    }
+
+    /* === MOBILE RESPONSIVE === */
+    @media (max-width: 768px) {
+        /* Tytuł główny - mniejszy na mobile */
+        .main-title {
+            font-size: 2rem !important;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.95rem !important;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Executive Summary - mniejsze paddingi */
+        .exec-summary {
+            padding: 15px !important;
+            margin: 15px 0 !important;
+        }
+
+        .exec-summary h2 {
+            font-size: 1.3rem !important;
+        }
+
+        .exec-summary p {
+            font-size: 0.95rem !important;
+        }
+
+        .exec-action {
+            padding: 12px !important;
+            margin-top: 12px !important;
+        }
+
+        /* Quick Stats - stackowane na mobile */
+        .quick-stat {
+            margin-bottom: 15px !important;
+            padding: 15px !important;
+        }
+
+        .quick-stat h4 {
+            font-size: 0.8rem !important;
+        }
+
+        .quick-stat .value {
+            font-size: 1.8rem !important;
+        }
+
+        .quick-stat .change {
+            font-size: 0.85rem !important;
+        }
+
+        /* Section headers - mniejsze */
+        .section-header {
+            margin: 20px 0 15px 0 !important;
+            padding: 12px 15px !important;
+        }
+
+        .section-header h3 {
+            font-size: 1.2rem !important;
+        }
+
+        /* Metric containers - większe dla łatwiejszego klikania */
+        div[data-testid="metric-container"] {
+            padding: 18px 15px !important;
+            margin-bottom: 12px !important;
+        }
+
+        div[data-testid="metric-container"] label {
+            font-size: 0.8rem !important;
+        }
+
+        div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+            font-size: 1.5rem !important;
+        }
+
+        /* Przyciski - większe dla touch */
+        .stButton button {
+            padding: 14px 24px !important;
+            font-size: 1rem !important;
+            width: 100% !important;
+            margin-bottom: 10px !important;
+        }
+
+        /* Expandery - większe headery */
+        .streamlit-expanderHeader {
+            padding: 14px 16px !important;
+            font-size: 0.95rem !important;
+        }
+
+        /* Columns - stack na mobile */
+        [data-testid="column"] {
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+
+        /* Sidebar - mniejsza szerokość na mobile */
+        section[data-testid="stSidebar"] {
+            max-width: 85vw !important;
+        }
+
+        /* Padding containers - mniejszy na mobile */
+        .block-container {
+            padding: 1rem 1rem 2rem 1rem !important;
+        }
+
+        /* Wykresy - pełna szerokość */
+        .js-plotly-plot {
+            width: 100% !important;
+        }
+
+        /* Selectboxy - większe dla touch */
+        .stSelectbox, .stMultiSelect {
+            font-size: 1rem !important;
+        }
+
+        /* Tabs - większe dla touch */
+        .stTabs [data-baseweb="tab"] {
+            padding: 12px 16px !important;
+            font-size: 0.9rem !important;
+        }
+
+        /* Gauge chart - mniejszy na mobile */
+        .plotly {
+            height: 250px !important;
+        }
+    }
+
+    /* Very small mobile (< 480px) */
+    @media (max-width: 480px) {
+        .main-title {
+            font-size: 1.5rem !important;
+        }
+
+        .subtitle {
+            font-size: 0.85rem !important;
+        }
+
+        .exec-summary h2 {
+            font-size: 1.1rem !important;
+        }
+
+        .exec-summary p {
+            font-size: 0.85rem !important;
+        }
+
+        .quick-stat .value {
+            font-size: 1.5rem !important;
+        }
+
+        div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+            font-size: 1.3rem !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)

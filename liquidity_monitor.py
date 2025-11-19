@@ -60,9 +60,9 @@ class LiquidityMonitor:
             'reserves_minimum': 2800,  # mld USD - minimum "wystarczajace"
             'reserves_comfortable': 3000,  # mld USD - komfortowy poziom
 
-            # SOFR spread
-            'sofr_iorb_spread_warning': 0.10,  # 10 bps - ostrzezenie
-            'sofr_iorb_spread_critical': 0.20,  # 20 bps - krytyczne
+            # SOFR-IORB spread (według Dan Kostecki - NAJWAŻNIEJSZE!)
+            'sofr_iorb_spread_warning': 0.15,  # 15 bps - ostrzeżenie (napięcia)
+            'sofr_iorb_spread_critical': 0.20,  # 20 bps - krytyczne (REPO STRESS!)
 
             # TIER 1 - Nowe progi
             'yield_curve_inverted': 0.0,  # Ujemna krzywa = recesja blisko!
@@ -86,18 +86,19 @@ class LiquidityMonitor:
 
         # === SYSTEM WAG ===
         # Wagi określają jak ważny jest dany wskaźnik (suma = 100%)
+        # Zaktualizowane według analiz Dan Kostecki (2024-2025)
         self.indicator_weights = {
-            # KRYTYCZNE (łącznie 40%) - bezpośredni wpływ na płynność
-            'reserves': 0.15,           # 15% - podstawa systemu
+            # KRYTYCZNE (łącznie 50%) - bezpośredni wpływ na płynność
+            'sofr_iorb_spread': 0.20,   # 20% - #1 WSKAŹNIK! Napięcia w repo market
+            'reserves': 0.15,           # 15% - podstawa systemu (ample vs scarce)
             'yield_curve': 0.15,        # 15% - sygnał recesji
-            'sofr_spread': 0.10,        # 10% - napięcia w finansowaniu
 
             # WAŻNE (łącznie 30%) - warunki rynkowe
             'vix': 0.10,                # 10% - sentyment/strach
             'nfci': 0.10,               # 10% - warunki finansowe
             'hy_spread': 0.10,          # 10% - ryzyko kredytowe
 
-            # POMOCNICZE (łącznie 30%) - kontekst makro
+            # POMOCNICZE (łącznie 20%) - kontekst makro
             'tga': 0.08,                # 8% - ruch płynności
             'reverse_repo': 0.07,       # 7% - bufor płynności
             'fed_balance': 0.05,        # 5% - polityka Fed (QE/QT)
@@ -610,7 +611,70 @@ class LiquidityMonitor:
                     'data': data,
                     'history': data['value'],  # Dla obliczania percentyli
                 }
-        
+
+        # === OBLICZ KLUCZOWE SPREADY (według Dan Kostecki) ===
+        # SOFR-IORB spread - NAJWAŻNIEJSZY wskaźnik napięć!
+        if 'sofr' in indicators and 'iorb' in indicators:
+            sofr_data = indicators['sofr']['data']
+            iorb_data = indicators['iorb']['data']
+
+            # Merge obu szeregów czasowych
+            merged = pd.merge(sofr_data, iorb_data, on='date', suffixes=('_sofr', '_iorb'))
+            merged['spread'] = merged['value_sofr'] - merged['value_iorb']
+
+            latest_spread = merged.iloc[-1]['spread']
+            if len(merged) > 1:
+                previous_spread = merged.iloc[-2]['spread']
+                week_ago_spread_data = merged[merged['date'] <= merged.iloc[-1]['date'] - timedelta(days=7)]
+                week_ago_spread = week_ago_spread_data.iloc[-1]['spread'] if not week_ago_spread_data.empty else latest_spread
+            else:
+                previous_spread = latest_spread
+                week_ago_spread = latest_spread
+
+            indicators['sofr_iorb_spread'] = {
+                'current': latest_spread,
+                'date': merged.iloc[-1]['date'].strftime('%Y-%m-%d'),
+                'change_1d': latest_spread - previous_spread,
+                'change_7d': latest_spread - week_ago_spread,
+                'data': merged[['date', 'spread']].rename(columns={'spread': 'value'}),
+                'history': merged['spread'],
+            }
+            # Status bez emoji dla kompatybilności z Windows console
+            if latest_spread > 0.20:
+                status = "STRESS!"
+            elif latest_spread > 0.15:
+                status = "UWAGA!"
+            else:
+                status = "OK"
+            print(f"   SOFR-IORB Spread: {latest_spread:.3f}% [{status}]")
+
+        # EFFR-IORB spread (FFR-IORB)
+        if 'effr' in indicators and 'iorb' in indicators:
+            effr_data = indicators['effr']['data']
+            iorb_data = indicators['iorb']['data']
+
+            merged = pd.merge(effr_data, iorb_data, on='date', suffixes=('_effr', '_iorb'))
+            merged['spread'] = merged['value_effr'] - merged['value_iorb']
+
+            latest_spread = merged.iloc[-1]['spread']
+            if len(merged) > 1:
+                previous_spread = merged.iloc[-2]['spread']
+                week_ago_spread_data = merged[merged['date'] <= merged.iloc[-1]['date'] - timedelta(days=7)]
+                week_ago_spread = week_ago_spread_data.iloc[-1]['spread'] if not week_ago_spread_data.empty else latest_spread
+            else:
+                previous_spread = latest_spread
+                week_ago_spread = latest_spread
+
+            indicators['effr_iorb_spread'] = {
+                'current': latest_spread,
+                'date': merged.iloc[-1]['date'].strftime('%Y-%m-%d'),
+                'change_1d': latest_spread - previous_spread,
+                'change_7d': latest_spread - week_ago_spread,
+                'data': merged[['date', 'spread']].rename(columns={'spread': 'value'}),
+                'history': merged['spread'],
+            }
+            print(f"   EFFR-IORB Spread: {latest_spread:.3f}%")
+
         return indicators
     
     def analyze_liquidity_conditions(self, indicators: Dict) -> Dict:
@@ -724,32 +788,45 @@ class LiquidityMonitor:
                     'message': f'TGA spada ({tga_change:.0f}B) - dodaje płynność',
                 })
         
-        # 3. Analiza SOFR vs IORB
-        if 'sofr' in indicators and 'iorb' in indicators:
-            sofr = indicators['sofr']['current']
-            iorb = indicators['iorb']['current']
-            spread = sofr - iorb
-            
+        # 3. Analiza SOFR-IORB SPREAD (według Dan Kostecki - KLUCZOWY WSKAŹNIK!)
+        if 'sofr_iorb_spread' in indicators:
+            spread = indicators['sofr_iorb_spread']['current']
+            spread_change = indicators['sofr_iorb_spread']['change_7d']
+
+            # REPO STRESS - spread > 0.20% (20 bps)
             if spread > self.thresholds['sofr_iorb_spread_critical']:
-                score -= 30
+                score -= 40  # Zwiększony impact (było -30)
                 analysis['alerts'].append({
                     'severity': 'critical',
-                    'indicator': 'SOFR spread',
-                    'message': f'[CRITICAL] SOFR-IORB spread: {spread:.2f}% - NAPIECIE!',
+                    'indicator': 'SOFR-IORB Spread',
+                    'message': f'🚨 REPO STRESS! SOFR-IORB: {spread:.3f}% - Kryzys płynności! Hedge funds pod presją!',
                 })
+
+            # NAPIĘCIA - spread > 0.15% (15 bps)
             elif spread > self.thresholds['sofr_iorb_spread_warning']:
-                score -= 15
+                score -= 25  # Zwiększony impact (było -15)
                 analysis['alerts'].append({
                     'severity': 'warning',
-                    'indicator': 'SOFR spread',
-                    'message': f'[WARN] SOFR-IORB spread: {spread:.2f}% - rosna koszty',
+                    'indicator': 'SOFR-IORB Spread',
+                    'message': f'⚠️ UWAGA! SOFR-IORB: {spread:.3f}% - Rosnące koszty lewara. Basis trade zagrożony!',
                 })
-            else:
-                score += 10
+
+            # STABILNY - spread < 0.10%
+            elif spread < 0.10:
+                score += 15
                 analysis['signals'].append({
                     'type': 'positive',
-                    'indicator': 'SOFR spread',
-                    'message': f'SOFR stabilny (spread: {spread:.2f}%)',
+                    'indicator': 'SOFR-IORB Spread',
+                    'message': f'✅ SOFR stabilny ({spread:.3f}%) - Płynność OK, tani lewar',
+                })
+
+            # Dodatkowy alert jeśli spread rośnie szybko
+            if spread_change > 0.05:  # wzrost > 5 bps w tydzień
+                score -= 10
+                analysis['alerts'].append({
+                    'severity': 'warning',
+                    'indicator': 'SOFR-IORB Trend',
+                    'message': f'📈 SOFR spread rośnie szybko: +{spread_change:.3f}% w tydzień',
                 })
         
         # 4. Analiza Reverse Repo
